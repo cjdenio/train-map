@@ -14,6 +14,12 @@ void clearFrame(uint8_t frame) {
   for (uint8_t reg = 0x00; reg <= 0x11; reg++) {
     writeRegister(reg, 0x00);
   }
+
+  // set PWM registers
+  for (uint8_t reg = 0x24; reg <= 0xB3; reg++) {
+    // writeRegister(reg, 0x7F);
+    writeRegister(reg, 0x32);
+  }
 }
 
 void displayFrame(uint8_t frame) {
