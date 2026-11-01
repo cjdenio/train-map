@@ -55,6 +55,8 @@ pub fn main(init: std.process.Init) !void {
     try led_map.put("18378", .{ .column = 0, .row = 6 }); // Library Station
     try led_map.put("18379", .{ .column = 0, .row = 5 }); // Trolley Station
     try led_map.put("18380", .{ .column = 0, .row = 5 }); // Trolley Station
+    try led_map.put("18381", .{ .column = 0, .row = 4 }); // 900 East Station
+    try led_map.put("18382", .{ .column = 0, .row = 4 }); // 900 East Station
     try led_map.put("18383", .{ .column = 0, .row = 3 }); // Stadium Station
     try led_map.put("18384", .{ .column = 0, .row = 3 }); // Stadium Station
     try led_map.put("18397", .{ .column = 4, .row = 0 }); // Midvale Fort Union Station
