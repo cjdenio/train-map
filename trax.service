@@ -1,0 +1,19 @@
+[Unit]    
+Description=Train Map
+After=network.target arduino-router.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=1
+User=root
+ExecStartPre=
+ExecStart=/home/arduino/zig_trax
+ExecStartPost
+ExecStop=
+ExecReload=
+
+[Install]
+WantedBy=multi-user.target
+
