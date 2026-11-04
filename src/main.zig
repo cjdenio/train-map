@@ -48,6 +48,37 @@ const Led = struct {
     column: u3,
 };
 
+pub fn run_loop(client: *std.http.Client, allocator: std.mem.Allocator, led_map: std.hash_map.StringHashMap(Led), router: *ArduinoRouter, current_frame: u1, io: std.Io) !void {
+    const feed = try get_vehicles(client, allocator);
+    defer feed.deinit();
+
+    var regs: [9]u8 = @splat(0);
+
+    for (feed.value.vehicles) |vehicle| {
+        const thing = led_map.get(vehicle.nearest_station.id);
+
+        if (thing) |value| {
+            std.debug.print("train at {s}, setting reg {} to {}\n", .{ vehicle.nearest_station.id, value.row, value.column });
+            regs[value.column] |= (@as(u8, 1) << (value.row));
+        }
+    }
+
+    try router.notify(allocator, "clearFrame", &.{msgpack.Payload.intToPayload(~current_frame)});
+
+    for (regs, 0..) |value, reg| {
+        try router.notify(allocator, "setRegister", &.{
+            msgpack.Payload.uintToPayload(~current_frame), // page
+            msgpack.Payload.uintToPayload(reg * 2), // register
+            msgpack.Payload.uintToPayload(value), // value
+        });
+        try io.sleep(.fromMilliseconds(100), .real);
+
+        std.debug.print("{x} IS {x}\n", .{ reg * 2, value });
+    }
+
+    try router.notify(allocator, "displayFrame", &.{msgpack.Payload.intToPayload(~current_frame)});
+}
+
 pub fn main(init: std.process.Init) !void {
     var led_map: std.hash_map.StringHashMap(Led) = .init(init.arena.allocator());
 
@@ -135,12 +166,12 @@ pub fn main(init: std.process.Init) !void {
     try led_map.put("25479", .{ .column = 6, .row = 1 }); // South Jordan Downtown Station
     try led_map.put("25480", .{ .column = 6, .row = 1 }); // South Jordan Downtown Station
 
-    const router = try ArduinoRouter.connect(init.io);
+    var router = try ArduinoRouter.connect(init.io);
     defer router.deinit();
     var client: std.http.Client = .{ .allocator = init.arena.allocator(), .io = init.io };
     defer client.deinit();
 
-    var currentFrame: u1 = 0;
+    var current_frame: u1 = 0;
 
     try router.notify(init.arena.allocator(), "clearFrame", &.{msgpack.Payload.intToPayload(0)});
     try router.notify(init.arena.allocator(), "displayFrame", &.{msgpack.Payload.intToPayload(0)});
@@ -150,36 +181,9 @@ pub fn main(init: std.process.Init) !void {
         const allocator = arena.allocator();
         defer arena.deinit();
 
-        const feed = try get_vehicles(&client, allocator);
-        defer feed.deinit();
+        run_loop(&client, allocator, led_map, &router, current_frame, init.io) catch |e| std.debug.print("ERROR OCCURED: {s}\n", .{@errorName(e)});
 
-        var regs: [9]u8 = @splat(0);
-
-        for (feed.value.vehicles) |vehicle| {
-            const thing = led_map.get(vehicle.nearest_station.id);
-
-            if (thing) |value| {
-                std.debug.print("train at {s}, setting reg {} to {}\n", .{ vehicle.nearest_station.id, value.row, value.column });
-                regs[value.column] |= (@as(u8, 1) << (value.row));
-            }
-        }
-
-        try router.notify(arena.allocator(), "clearFrame", &.{msgpack.Payload.intToPayload(~currentFrame)});
-
-        for (regs, 0..) |value, reg| {
-            try router.notify(arena.allocator(), "setRegister", &.{
-                msgpack.Payload.uintToPayload(~currentFrame), // page
-                msgpack.Payload.uintToPayload(reg * 2), // register
-                msgpack.Payload.uintToPayload(value), // value
-            });
-            try init.io.sleep(.fromMilliseconds(100), .real);
-
-            std.debug.print("{x} IS {x}\n", .{ reg * 2, value });
-        }
-
-        try router.notify(arena.allocator(), "displayFrame", &.{msgpack.Payload.intToPayload(~currentFrame)});
-
-        currentFrame = ~currentFrame;
+        current_frame = ~current_frame;
 
         try init.io.sleep(.fromSeconds(5), .real);
     }
