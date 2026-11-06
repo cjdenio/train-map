@@ -50,14 +50,19 @@ fn run_loop(client: *std.http.Client, allocator: std.mem.Allocator, led_map: std
     const feed = try get_vehicles(client, allocator);
     defer feed.deinit();
 
-    var regs: [9]u8 = @splat(0);
+    var regs: [0xB4]u8 = @splat(0x00);
 
     for (feed.value.vehicles) |vehicle| {
         const thing = led_map.get(vehicle.nearest_station.id);
 
         if (thing) |value| {
-            std.debug.print("train at {s}, setting reg {} to {}\n", .{ vehicle.nearest_station.id, value.row, value.column });
-            regs[value.column] |= (@as(u8, 1) << (value.row));
+            std.debug.print("train at {s}, setting reg {} to {}\n", .{ vehicle.nearest_station.id, value.column, value.row });
+            regs[value.led_reg()] |= (@as(u8, 1) << (value.column));
+            if (regs[value.pwm_reg()] == 0) {
+                regs[value.pwm_reg()] = 50;
+            } else {
+                regs[value.pwm_reg()] = 127;
+            }
         }
     }
 
@@ -66,12 +71,12 @@ fn run_loop(client: *std.http.Client, allocator: std.mem.Allocator, led_map: std
     for (regs, 0..) |value, reg| {
         try router.notify(allocator, "setRegister", &.{
             msgpack.Payload.uintToPayload(~current_frame), // page
-            msgpack.Payload.uintToPayload(reg * 2), // register
+            msgpack.Payload.uintToPayload(reg), // register
             msgpack.Payload.uintToPayload(value), // value
         });
-        try io.sleep(.fromMilliseconds(100), .real);
+        try io.sleep(.fromMilliseconds(5), .real);
 
-        std.debug.print("{x} IS {x}\n", .{ reg * 2, value });
+        std.debug.print("{x} IS {x}\n", .{ reg, value });
     }
 
     try router.notify(allocator, "displayFrame", &.{msgpack.Payload.intToPayload(~current_frame)});
