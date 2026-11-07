@@ -2,6 +2,12 @@ const std = @import("std");
 const net = std.Io.net;
 const msgpack = @import("msgpack");
 
+const RpcType = enum(u8) {
+    request = 0,
+    response = 1,
+    notification = 2,
+};
+
 pub const ArduinoRouter = struct {
     stream: net.Stream,
     io: std.Io,
@@ -17,7 +23,7 @@ pub const ArduinoRouter = struct {
         var request = try msgpack.Payload.arrPayload(3, allocator);
         defer request.free(allocator);
 
-        try request.setArrElement(0, msgpack.Payload.intToPayload(2));
+        try request.setArrElement(0, msgpack.Payload.intToPayload(@backingInt(RpcType.notification)));
 
         const methodPayload = try msgpack.Payload.strToPayload(method, allocator);
         defer methodPayload.free(allocator);

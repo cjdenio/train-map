@@ -59,15 +59,13 @@ const App = struct {
         var regs: [0xB4]u8 = @splat(0x00);
 
         for (feed.value.vehicles) |vehicle| {
-            const thing = self.led_map.get(vehicle.nearest_station.id);
-
-            if (thing) |value| {
-                std.debug.print("train at {s}, setting reg {} to {}\n", .{ vehicle.nearest_station.id, value.column, value.row });
-                regs[value.led_reg()] |= (@as(u8, 1) << (value.column));
-                if (regs[value.pwm_reg()] == 0) {
-                    regs[value.pwm_reg()] = 50;
+            if (self.led_map.get(vehicle.nearest_station.id)) |led| {
+                std.debug.print("train at {s}, setting reg {} to {}\n", .{ vehicle.nearest_station.id, led.column, led.row });
+                regs[led.led_reg()] |= (@as(u8, 1) << (led.column));
+                if (regs[led.pwm_reg()] == 0) {
+                    regs[led.pwm_reg()] = 50;
                 } else {
-                    regs[value.pwm_reg()] = 127;
+                    regs[led.pwm_reg()] = 127;
                 }
             }
         }
@@ -81,8 +79,6 @@ const App = struct {
                 msgpack.Payload.uintToPayload(value), // value
             });
             try io.sleep(.fromMilliseconds(5), .real);
-
-            std.debug.print("{x} IS {x}\n", .{ reg, value });
         }
 
         try self.router.notify(allocator, "displayFrame", &.{msgpack.Payload.intToPayload(~self.current_frame)});
