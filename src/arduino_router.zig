@@ -13,13 +13,18 @@ pub const ArduinoRouter = struct {
         return .{ .stream = stream, .io = io };
     }
 
-    pub fn notify(self: @This(), allocator: std.mem.Allocator, method: []const u8, args: []const msgpack.Payload) !void {
+    pub fn notify(self: ArduinoRouter, allocator: std.mem.Allocator, method: []const u8, args: []const msgpack.Payload) !void {
         var request = try msgpack.Payload.arrPayload(3, allocator);
+        defer request.free(allocator);
 
         try request.setArrElement(0, msgpack.Payload.intToPayload(2));
-        try request.setArrElement(1, try msgpack.Payload.strToPayload(method, allocator));
+
+        const methodPayload = try msgpack.Payload.strToPayload(method, allocator);
+        defer methodPayload.free(allocator);
+        try request.setArrElement(1, methodPayload);
 
         var argsPayload = try msgpack.Payload.arrPayload(args.len, allocator);
+        defer argsPayload.free(allocator);
 
         for (args, 0..) |arg, i| {
             try argsPayload.setArrElement(i, arg);
